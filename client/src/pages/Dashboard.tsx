@@ -1,15 +1,18 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { AlertCircle, Activity, Heart, Wifi, WifiOff, LogOut } from "lucide-react";
+import { AlertCircle, Activity, Heart, Wifi, WifiOff, LogOut, AlertTriangle, CheckCircle } from "lucide-react";
+import PatientVitalsForm from "@/components/PatientVitalsForm";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
   const [wsConnected, setWsConnected] = useState(false);
   const [latestHeartEvent, setLatestHeartEvent] = useState<any>(null);
   const [latestFallEvent, setLatestFallEvent] = useState<any>(null);
+  const [liveAlert, setLiveAlert] = useState<any>(null);
 
   // Queries
   const heartEventsQuery = trpc.health.getHeartDiseaseEvents.useQuery(
@@ -129,6 +132,43 @@ export default function Dashboard() {
               >
                 {initMqttMutation.isPending ? "Connecting..." : "Connect"}
               </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Live Alert Notification */}
+        {liveAlert && (
+          <Card className={`mb-8 p-6 border-2 ${
+            liveAlert.type === "fall" 
+              ? "border-destructive bg-destructive/10" 
+              : "border-secondary bg-secondary/10"
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${
+                liveAlert.type === "fall"
+                  ? "bg-destructive/20"
+                  : "bg-secondary/20"
+              }`}>
+                {liveAlert.type === "fall" ? (
+                  <AlertTriangle className={`w-6 h-6 ${liveAlert.type === "fall" ? "text-destructive" : "text-secondary"}`} />
+                ) : (
+                  <AlertCircle className="w-6 h-6 text-secondary" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-lg mb-2">
+                  {liveAlert.type === "fall" ? "Fall Detected" : "High Heart Disease Risk"}
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {liveAlert.message}
+                </p>
+                <button
+                  onClick={() => setLiveAlert(null)}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           </Card>
         )}
@@ -291,6 +331,21 @@ export default function Dashboard() {
               </div>
             )}
           </Card>
+        </div>
+
+        {/* Patient Vitals Input Form */}
+        <div className="mb-8">
+          <PatientVitalsForm onPredictionReceived={(result) => {
+            if (result.status === "detected" && result.confidenceScore > 70) {
+              setLiveAlert({
+                type: "heart",
+                message: `Confidence score: ${result.confidenceScore}%. Please consult with a healthcare provider.`,
+              });
+              toast.error(`High heart disease risk detected: ${result.confidenceScore}%`, {
+                duration: 5000,
+              });
+            }
+          }} />
         </div>
 
         {/* Quick Links */}

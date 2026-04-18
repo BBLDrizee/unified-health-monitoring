@@ -100,7 +100,7 @@ export const healthRouter = router({
     .input(
       z.object({
         age: z.number(),
-        sex: z.enum(["M", "F"]),
+        sex: z.number().min(0).max(1),
         cholesterol: z.number(),
         bloodPressureSystolic: z.number(),
         bloodPressureDiastolic: z.number(),
@@ -108,19 +108,32 @@ export const healthRouter = router({
         glucose: z.number(),
         smoker: z.number().min(0).max(1),
         exerciseFrequency: z.number(),
+        cp: z.number().min(0).max(3).optional(),
+        fbs: z.number().min(0).max(1).optional(),
+        restecg: z.number().min(0).max(2).optional(),
+        exang: z.number().min(0).max(1).optional(),
+        oldpeak: z.number().optional(),
+        slope: z.number().min(0).max(2).optional(),
+        ca: z.number().min(0).max(4).optional(),
+        thal: z.number().min(0).max(3).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        // Publish request to Jetson
         await publishMqttMessage(ctx.user.id, "health/heart/request", {
           userId: ctx.user.id,
           timestamp: new Date().toISOString(),
           ...input,
         });
 
+        // For now, return a mock prediction (will be replaced with real MQTT response)
+        // In production, this would wait for the MQTT response from Jetson
+        const mockConfidence = Math.floor(Math.random() * 100);
         return {
-          success: true,
-          message: "Prediction request sent to Jetson",
+          status: mockConfidence > 70 ? "detected" : "not_detected",
+          confidenceScore: mockConfidence,
+          probability: mockConfidence / 100,
         };
       } catch (error) {
         console.error("Failed to send prediction request:", error);
